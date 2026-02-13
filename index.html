@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <title>AlaMap</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              500: '#f43f5e',
+              600: '#e11d48',
+              900: '#881337',
+            },
+            telegram: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#229ED9', 
+              600: '#0ea5e9',
+            },
+            stone: { 850: '#1c1917' }
+          },
+          boxShadow: {
+            soft: '0 10px 40px -10px rgba(0,0,0,0.08)',
+            floating: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background-color: rgba(148,163,184,.55); border-radius: 20px; }
+    .hide-scroll { -ms-overflow-style:none; scrollbar-width:none; }
+    .hide-scroll::-webkit-scrollbar { display:none; }
+
+    @keyframes fadeIn {
+      from {opacity:0; transform: translateY(10px);}
+      to {opacity:1; transform: translateY(0);}
+    }
+    .animate-fade-in { animation: fadeIn .35s ease-out forwards; }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+    .animate-float { animation: float 4s ease-in-out infinite; }
+
+    /* ПЛАВНЫЙ ПЕРЕХОД ТЕМЫ */
+    body, div, nav, section, button, input, textarea, select, span, i, h1, h2, h3, p, a {
+      transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+      transition-duration: 500ms;
+      transition-timing-function: ease-in-out;
+    }
+    .active\:scale-95:active { transition-duration: 100ms !important; }
+    .group:hover img { transition-duration: 700ms !important; } 
+
+    .glass-panel {
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .dark .glass-panel { background: rgba(28,25,23,.75); }
+  </style>
+</head>
+
+<body class="h-full bg-[#FAFAFA] text-stone-800 dark:bg-stone-900 dark:text-stone-100 antialiased overflow-hidden">
+  
+  <nav class="sticky top-0 z-40 w-full glass-panel border-b border-stone-100/70 dark:border-white/10">
+    <div class="w-full px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <button class="flex items-center gap-2" onclick="UI.switchTab('events')">
+          <div class="w-9 h-9 bg-brand-500 rounded-2xl flex items-center justify-center text-white text-lg shadow-lg shadow-brand-500/30">
+            <i class="fa-solid fa-location-dot"></i>
+          </div>
+          <span class="font-extrabold text-xl tracking-tight text-stone-900 dark:text-white">
+            Ala<span class="text-brand-500">Map</span>
+          </span>
+        </button>
+
+        <div id="searchBarDesktop" class="hidden md:flex flex-1 max-w-md mx-8 transition-opacity duration-300">
+          <div class="relative w-full">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+              <i class="fa-solid fa-search"></i>
+            </span>
+            <input id="searchInputDesktop" type="text"
+              class="w-full bg-stone-100 dark:bg-white/10 dark:text-white text-stone-800 rounded-full py-2.5 pl-10 pr-4 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all placeholder-stone-400 font-medium"
+              placeholder="Поиск событий..."
+              oninput="UI.onSearch(this.value)" />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button class="hidden sm:flex items-center gap-2 bg-stone-900 dark:bg-white/10 dark:hover:bg-white/15 text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-stone-700 transition-all shadow-lg hover:shadow-xl active:scale-95"
+                  onclick="UI.openCreateModal()">
+            <i class="fa-solid fa-plus"></i><span id="btnCreateTop">Создать</span>
+          </button>
+
+          <button class="w-10 h-10 rounded-full bg-stone-100 dark:bg-white/10 border border-stone-200/70 dark:border-white/10 flex items-center justify-center hover:bg-stone-200 dark:hover:bg-white/15 transition"
+                  title="Тема"
+                  onclick="app.setTheme(app.currentTheme === 'dark' ? 'light' : 'dark')">
+            <i class="fa-solid fa-moon text-stone-700 dark:text-stone-100"></i>
+          </button>
+
+          <div class="relative" id="userMenuContainer">
+            <button class="w-10 h-10 rounded-full border-2 border-stone-100 dark:border-white/10 p-0.5 overflow-hidden active:scale-95 transition-transform"
+                    onclick="UI.toggleUserMenu()"
+                    title="Меню">
+              <img id="navAvatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120"
+                   class="w-full h-full rounded-full object-cover" alt="avatar">
+            </button>
+
+            <div id="userMenuDropdown" class="hidden absolute right-0 top-full mt-3 w-64 bg-white dark:bg-stone-850 border border-stone-100 dark:border-white/10 rounded-2xl shadow-xl z-50 animate-fade-in origin-top-right overflow-hidden">
+                <div id="menuGuestView" class="p-4 border-b border-stone-100 dark:border-white/10 hidden">
+                    <button onclick="UI.openProfileModal(); UI.closeUserMenu()" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-extrabold py-3 rounded-xl transition shadow-lg shadow-brand-500/30">
+                        Войти / Регистрация
+                    </button>
+                </div>
+                <div id="menuUserView" class="hidden">
+                    <div class="px-5 py-4 border-b border-stone-100 dark:border-white/5 bg-stone-50/50 dark:bg-white/5">
+                        <p class="text-sm font-extrabold text-stone-900 dark:text-white truncate" id="menuUserName">User</p>
+                        <p class="text-xs text-stone-500 dark:text-white/60 truncate" id="menuUserDesc">Desc</p>
+                    </div>
+                    <div class="p-2 pb-0">
+                        <button onclick="UI.openProfileModal(); UI.closeUserMenu()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-50 dark:hover:bg-white/10 flex items-center gap-3 transition-colors text-sm font-bold text-stone-700 dark:text-white/90">
+                            <div class="w-8 h-8 rounded-full bg-brand-50 text-brand-500 dark:bg-brand-500/20 dark:text-brand-400 flex items-center justify-center"><i class="fa-solid fa-user"></i></div>
+                            Профиль
+                        </button>
+                    </div>
+                </div>
+                <div class="p-2 space-y-1">
+                    <button onclick="UI.openSettingsModal(); UI.closeUserMenu()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-50 dark:hover:bg-white/10 flex items-center gap-3 transition-colors text-sm font-bold text-stone-700 dark:text-white/90">
+                        <div class="w-8 h-8 rounded-full bg-stone-100 text-stone-500 dark:bg-white/10 dark:text-white/70 flex items-center justify-center"><i class="fa-solid fa-gear"></i></div>
+                        Настройки
+                    </button>
+                    <button onclick="window.open('https://t.me/qalakoz_support', '_blank'); UI.closeUserMenu()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-50 dark:hover:bg-white/10 flex items-center gap-3 transition-colors text-sm font-bold text-stone-700 dark:text-white/90">
+                        <div class="w-8 h-8 rounded-full bg-stone-100 text-stone-500 dark:bg-white/10 dark:text-white/70 flex items-center justify-center"><i class="fa-solid fa-paper-plane"></i></div>
+                        Поддержка
+                    </button>
+                </div>
+                <div id="menuLogoutBlock" class="hidden border-t border-stone-100 dark:border-white/5 p-2">
+                    <button onclick="app.simulateLogout(); UI.closeUserMenu()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-400 flex items-center gap-3 transition-colors text-sm font-bold text-stone-500 dark:text-white/60">
+                        <i class="fa-solid fa-arrow-right-from-bracket ml-2"></i>
+                        Выйти
+                    </button>
+                </div>
+            </div>
+          </div>
+          </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="flex flex-col h-[calc(100vh-4rem)]">
+    <div class="flex-grow overflow-y-auto w-full px-4 sm:px-6 lg:px-8 py-6 pb-28">
+      <header class="mb-6 mt-1">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h1 id="greetingTitle" class="text-3xl sm:text-4xl font-extrabold text-stone-900 dark:text-white mb-1">
+              Привет! 👋
+            </h1>
+            <p id="greetingSub" class="text-stone-500 dark:text-white/60 text-lg">
+              Что интересного в Алматы сегодня?
+            </p>
+          </div>
+
+          <div id="searchBarMobile" class="md:hidden transition-all duration-300">
+            <div class="relative w-full">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+                <i class="fa-solid fa-search"></i>
+              </span>
+              <input id="searchInputMobile" type="text"
+                class="w-full bg-stone-100 dark:bg-white/10 dark:text-white text-stone-800 rounded-full py-3 pl-10 pr-4 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all placeholder-stone-400 font-medium"
+                placeholder="Поиск..."
+                oninput="UI.onSearch(this.value)" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="hidden sm:flex gap-2 mb-5">
+        <button id="tabBtn_events" onclick="UI.switchTab('events')" class="px-4 py-2 rounded-full text-sm font-bold transition border">
+          <i class="fa-solid fa-compass mr-2"></i>Афиша
+        </button>
+        <button id="tabBtn_guilds" onclick="UI.switchTab('guilds')" class="px-4 py-2 rounded-full text-sm font-bold transition border">
+          <i class="fa-solid fa-people-group mr-2"></i>Гильдии
+        </button>
+        <button id="tabBtn_saved" onclick="UI.switchTab('saved')" class="px-4 py-2 rounded-full text-sm font-bold transition border">
+          <i class="fa-solid fa-bookmark mr-2"></i>Сохранено
+        </button>
+        <button id="tabBtn_ai" onclick="UI.switchTab('ai')" class="px-4 py-2 rounded-full text-sm font-bold transition border">
+          <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Гид
+        </button>
+      </div>
+
+      <div id="categoryFilters" class="flex gap-3 overflow-x-auto pb-4 mb-6 hide-scroll px-1"></div>
+
+      <section id="view_events" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8"></section>
+
+      <section id="view_guilds" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white">Гильдии</h2>
+          <button onclick="UI.openCreateModal('guild')"
+                  class="px-4 py-2 rounded-full bg-stone-900 dark:bg-white/10 dark:hover:bg-white/15 text-white text-sm font-bold hover:bg-stone-700 transition active:scale-95">
+            <i class="fa-solid fa-plus mr-2"></i>Создать гильдию
+          </button>
+        </div>
+        <div id="guildsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+      </section>
+
+      <section id="view_saved" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white">Сохранено</h2>
+          <span class="text-sm text-stone-500 dark:text-white/60" id="savedCount"></span>
+        </div>
+        <div id="savedList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8"></div>
+      </section>
+
+      <section id="view_ai" class="hidden h-full">
+        <div class="flex flex-col h-full bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 rounded-[28px] shadow-sm overflow-hidden">
+          <div class="flex-none px-6 py-4 border-b border-stone-100 dark:border-white/10 flex items-center justify-between">
+            <div>
+              <h2 class="font-extrabold text-lg text-stone-900 dark:text-white">AI Гид</h2>
+              <p class="text-xs text-stone-400 dark:text-white/50">QalaKöz отвечает в языке пользователя</p>
+            </div>
+            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          </div>
+          <div id="aiHistory" class="flex-grow min-h-0 overflow-y-auto p-6 space-y-4 bg-stone-50/60 dark:bg-black/10"></div>
+          <div class="flex-none p-4 bg-white dark:bg-white/5 border-t border-stone-100 dark:border-white/10">
+            <form onsubmit="UI.sendAI(event)" class="relative">
+              <input id="aiInput" type="text" placeholder="Написать сообщение..."
+                class="w-full bg-stone-100 dark:bg-white/10 dark:text-white text-stone-800 placeholder-stone-400 rounded-full py-4 pl-6 pr-14 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all font-medium">
+              <button type="submit"
+                class="absolute right-2 top-2 bottom-2 w-10 h-10 bg-brand-500 rounded-full text-white flex items-center justify-center hover:bg-brand-600 transition-colors shadow-md shadow-brand-500/30">
+                <i class="fa-solid fa-paper-plane text-sm"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sm:hidden flex items-center gap-2 p-2 bg-stone-900/90 dark:bg-black/90 backdrop-blur-2xl border border-white/10 rounded-full shadow-2xl shadow-black/20 text-white/40">
+    <button onclick="UI.switchTab('events')" class="w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 group hover:bg-white/5 active:scale-90" id="mnav_events">
+      <i class="fa-solid fa-compass text-xl transition-transform"></i>
+    </button>
+    <button onclick="UI.switchTab('guilds')" class="w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 group hover:bg-white/5 active:scale-90" id="mnav_guilds">
+      <i class="fa-solid fa-people-group text-xl transition-transform"></i>
+    </button>
+    <button onclick="UI.switchTab('saved')" class="w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 group hover:bg-white/5 active:scale-90" id="mnav_saved">
+      <i class="fa-solid fa-bookmark text-xl transition-transform"></i>
+    </button>
+    <button onclick="UI.switchTab('ai')" class="w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 group hover:bg-white/5 active:scale-90" id="mnav_ai">
+      <i class="fa-solid fa-wand-magic-sparkles text-xl transition-transform"></i>
+    </button>
+  </div>
+
+  <div id="detailOverlay" class="fixed inset-0 z-50 hidden bg-stone-900/60 backdrop-blur-sm sm:p-4 lg:p-8 items-end sm:items-center justify-center">
+    <div id="detailContent" class="w-full h-[95vh] sm:h-[90vh] max-w-[95%] bg-white dark:bg-stone-850 sm:rounded-[32px] rounded-t-[32px] shadow-2xl overflow-hidden relative animate-fade-in flex flex-col sm:flex-row"></div>
+  </div>
+
+  <div id="settingsOverlay" class="fixed inset-0 z-50 hidden bg-stone-900/80 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-850 w-full max-w-sm rounded-[32px] p-8 shadow-2xl relative animate-fade-in border border-stone-100 dark:border-white/10">
+      <button onclick="UI.closeSettingsModal()" class="absolute top-6 right-6 w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 flex items-center justify-center hover:bg-stone-200 dark:hover:bg-white/15 transition-colors">
+        <i class="fa-solid fa-times text-stone-500 dark:text-white/70"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-6">Настройки</h2>
+      <div class="space-y-4">
+        <p class="text-sm font-bold text-stone-500 dark:text-white/60 uppercase">Выберите язык / Language</p>
+        <div class="grid grid-cols-1 gap-3">
+            <button onclick="app.setLang('kz'); UI.closeSettingsModal()" class="w-full py-4 rounded-xl bg-stone-50 dark:bg-white/5 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/20 font-bold transition flex items-center justify-between px-6">
+                <span>Қазақша</span>
+                <span class="text-xl">🇰🇿</span>
+            </button>
+            <button onclick="app.setLang('ru'); UI.closeSettingsModal()" class="w-full py-4 rounded-xl bg-stone-50 dark:bg-white/5 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/20 font-bold transition flex items-center justify-between px-6">
+                <span>Русский</span>
+                <span class="text-xl">🇷🇺</span>
+            </button>
+            <button onclick="app.setLang('en'); UI.closeSettingsModal()" class="w-full py-4 rounded-xl bg-stone-50 dark:bg-white/5 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/20 font-bold transition flex items-center justify-between px-6">
+                <span>English</span>
+                <span class="text-xl">🇬🇧</span>
+            </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="createOverlay" class="fixed inset-0 z-50 hidden bg-stone-900/80 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-850 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative animate-fade-in border border-stone-100 dark:border-white/10">
+      <button onclick="UI.closeCreateModal()" class="absolute top-6 right-6 w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 flex items-center justify-center hover:bg-stone-200 dark:hover:bg-white/15 transition-colors">
+        <i class="fa-solid fa-times text-stone-500 dark:text-white/70"></i>
+      </button>
+      <h2 id="createTitle" class="text-2xl font-extrabold text-stone-900 dark:text-white mb-6">Создать</h2>
+      <form onsubmit="UI.submitCreate(event)" class="space-y-4">
+        <input type="hidden" name="mode" value="event"/>
+        <div>
+          <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Название</label>
+          <input type="text" name="title" required
+            class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all font-medium dark:text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Категория</label>
+            <select name="category"
+              class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+              <option value="Party">Вечеринка</option>
+              <option value="Sport">Спорт</option>
+              <option value="Art">Искусство</option>
+              <option value="Food">Еда</option>
+              <option value="Walks">Прогулки</option>
+              <option value="Mountains">Горы</option>
+              <option value="Coffee">Кофе</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Время</label>
+            <input type="text" name="date" placeholder="Завтра, 18:00"
+              class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Место</label>
+          <input type="text" name="location" placeholder="Название или адрес"
+            class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Описание</label>
+          <textarea name="description" rows="3"
+            class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Цена</label>
+            <select name="price"
+              class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+              <option value="1">$ (Дешево)</option>
+              <option value="2">$$ (Средне)</option>
+              <option value="3">$$$ (Дорого)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Картинка</label>
+            <input type="text" name="image" placeholder="URL (необязательно)"
+              class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          </div>
+        </div>
+        <button type="submit"
+          class="w-full bg-stone-900 dark:bg-brand-500 text-white font-extrabold py-4 rounded-xl hover:bg-stone-800 dark:hover:bg-brand-600 transition-all shadow-lg mt-2 active:scale-[0.99]">
+          Опубликовать
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="profileOverlay" class="fixed inset-0 z-50 hidden bg-stone-900/70 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white dark:bg-stone-850 w-full max-w-md rounded-[32px] p-7 shadow-2xl relative animate-fade-in border border-stone-100 dark:border-white/10">
+      <button onclick="UI.closeProfileModal()" class="absolute top-5 right-5 w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 flex items-center justify-center hover:bg-stone-200 dark:hover:bg-white/15 transition-colors">
+        <i class="fa-solid fa-times text-stone-500 dark:text-white/70"></i>
+      </button>
+
+      <div id="profileAuthView">
+        <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-1">Вход</h2>
+        <p class="text-sm text-stone-500 dark:text-white/60 mb-5">Чтобы вступать, писать в чат и получать XP.</p>
+        <div class="space-y-3">
+          <input id="loginEmail" type="email" placeholder="Gmail"
+                 class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          <input id="loginPass" type="password" placeholder="Пароль"
+                 class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          <div id="authErr" class="hidden text-sm text-red-500"></div>
+          <button onclick="app.processLogin()"
+                  class="w-full bg-brand-500 hover:bg-brand-600 text-white font-extrabold py-3.5 rounded-xl transition active:scale-[0.99]">
+            Войти
+          </button>
+          
+          <div id="g_id_onload"
+               data-client_id="854187261075-dd6f4c05vhegba90g5q1qc3c2okm1jl5.apps.googleusercontent.com"
+               data-callback="handleCredentialResponse"
+               data-auto_prompt="false">
+          </div>
+          <button onclick="app.loginGoogle()"
+                  class="w-full bg-white dark:bg-white/5 border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white font-bold py-3.5 rounded-xl transition hover:bg-stone-50 dark:hover:bg-white/10 active:scale-[0.99] flex items-center justify-center gap-2">
+            <i class="fa-brands fa-google"></i>
+            Продолжить с Google
+          </button>
+
+          <button onclick="UI.toggleAuthMode('register')" class="w-full text-sm font-bold text-brand-600 hover:text-brand-500">
+            Создать аккаунт
+          </button>
+        </div>
+      </div>
+
+      <div id="profileRegisterView" class="hidden">
+        <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-1">Регистрация</h2>
+        <p class="text-sm text-stone-500 dark:text-white/60 mb-5">Шаг 1 из 3: Данные</p>
+        <div class="space-y-3">
+          <input id="regName" type="text" placeholder="Имя"
+                 class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          <input id="regEmail" type="email" placeholder="Gmail"
+                 class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          <input id="regPass" type="password" placeholder="Пароль"
+                 class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+          <div id="regErr" class="hidden text-sm text-red-500"></div>
+          <button onclick="app.processRegisterStep1()"
+                  class="w-full bg-stone-900 dark:bg-brand-500 hover:bg-stone-800 dark:hover:bg-brand-600 text-white font-extrabold py-3.5 rounded-xl transition active:scale-[0.99]">
+            Далее <i class="fa-solid fa-arrow-right ml-2"></i>
+          </button>
+          <button onclick="UI.toggleAuthMode('login')" class="w-full text-sm font-bold text-brand-600 hover:text-brand-500">
+            Уже есть аккаунт
+          </button>
+        </div>
+      </div>
+
+      <div id="onboardingInterestsView" class="hidden">
+        <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-1">Что вам нравится?</h2>
+        <p class="text-sm text-stone-500 dark:text-white/60 mb-5">Шаг 2 из 3: Выберите интересы</p>
+        <div class="grid grid-cols-2 gap-3 mb-6" id="onboardingTags"></div>
+        <button onclick="app.processRegisterStep2()"
+                class="w-full bg-stone-900 dark:bg-brand-500 hover:bg-stone-800 dark:hover:bg-brand-600 text-white font-extrabold py-3.5 rounded-xl transition active:scale-[0.99]">
+            Далее <i class="fa-solid fa-arrow-right ml-2"></i>
+        </button>
+      </div>
+
+      <div id="onboardingSourceView" class="hidden">
+        <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-1">Почти всё!</h2>
+        <p class="text-sm text-stone-500 dark:text-white/60 mb-5">Шаг 3 из 3: Откуда вы узнали о нас?</p>
+        <div class="space-y-3 mb-6">
+            <button onclick="app.selectSource('instagram')" class="source-btn w-full p-4 rounded-xl border border-stone-200 dark:border-white/10 text-left font-bold text-stone-700 dark:text-white hover:bg-stone-50 dark:hover:bg-white/10 transition flex items-center justify-between group">
+                <span>Instagram</span>
+                <i class="fa-brands fa-instagram text-xl opacity-50 group-hover:opacity-100 transition"></i>
+            </button>
+            <button onclick="app.selectSource('tiktok')" class="source-btn w-full p-4 rounded-xl border border-stone-200 dark:border-white/10 text-left font-bold text-stone-700 dark:text-white hover:bg-stone-50 dark:hover:bg-white/10 transition flex items-center justify-between group">
+                <span>TikTok</span>
+                <i class="fa-brands fa-tiktok text-xl opacity-50 group-hover:opacity-100 transition"></i>
+            </button>
+            <button onclick="app.selectSource('friends')" class="source-btn w-full p-4 rounded-xl border border-stone-200 dark:border-white/10 text-left font-bold text-stone-700 dark:text-white hover:bg-stone-50 dark:hover:bg-white/10 transition flex items-center justify-between group">
+                <span>От друзей</span>
+                <i class="fa-solid fa-user-group text-xl opacity-50 group-hover:opacity-100 transition"></i>
+            </button>
+        </div>
+        <input type="hidden" id="selectedSource" value="">
+        <button onclick="app.finishRegistration()"
+                class="w-full bg-brand-500 hover:bg-brand-600 text-white font-extrabold py-3.5 rounded-xl transition active:scale-[0.99] shadow-lg shadow-brand-500/30">
+            Завершить регистрацию 🎉
+        </button>
+      </div>
+
+      <div id="profileUserView" class="hidden">
+        <div class="flex items-center gap-4 mb-5 relative">
+            <img id="profileAvatar" class="w-16 h-16 rounded-2xl object-cover border border-stone-100 dark:border-white/10"
+                 src="" alt="avatar">
+            <div class="min-w-0 flex-grow">
+              <div class="text-xl font-extrabold text-stone-900 dark:text-white" id="profileName"></div>
+              <div class="text-sm text-stone-500 dark:text-white/60" id="profileDesc"></div>
+            </div>
+            <button onclick="UI.toggleAuthMode('edit')" class="w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 flex items-center justify-center text-stone-600 dark:text-white/70 hover:bg-brand-500 hover:text-white transition">
+              <i class="fa-solid fa-pencil"></i>
+            </button>
+          </div>
+  
+          <div class="mb-4 flex flex-wrap gap-2" id="profileInterestsDisplay"></div>
+  
+          <div class="bg-stone-50 dark:bg-white/5 border border-stone-100 dark:border-white/10 rounded-2xl p-4 mb-4">
+            <div class="flex items-center justify-between text-xs font-extrabold text-stone-600 dark:text-white/70">
+              <span id="lvlText">Level 1</span>
+              <span id="xpText">0 XP</span>
+            </div>
+            <div class="mt-3 h-2 rounded-full bg-stone-200 dark:bg-white/10 overflow-hidden">
+              <div id="xpBar" class="h-full w-0 bg-gradient-to-r from-brand-500 to-brand-600 transition-all"></div>
+            </div>
+          </div>
+  
+          <div class="mb-5">
+            <div class="text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-2">Достижения</div>
+            <div id="badgesGrid" class="grid grid-cols-4 gap-3"></div>
+          </div>
+  
+          <div class="flex gap-3">
+            <button onclick="app.simulateLogout()"
+                    class="flex-1 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-800 dark:text-white font-extrabold py-3 rounded-xl transition active:scale-[0.99]">
+              Выйти
+            </button>
+            <button onclick="UI.closeProfileModal()"
+                    class="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-extrabold py-3 rounded-xl transition active:scale-[0.99]">
+              Ок
+            </button>
+          </div>
+      </div>
+
+      <div id="profileEditView" class="hidden">
+        <h2 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-4">Редактировать</h2>
+        
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Имя</label>
+                <input id="editName" type="text" class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+            </div>
+            <div>
+                <label class="block text-xs font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mb-1">Ссылка на фото (URL)</label>
+                <input id="editAvatar" type="text" class="w-full bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 font-medium dark:text-white">
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-10">
+             <button onclick="UI.toggleAuthMode('profile')" class="flex-1 bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-white font-bold py-4 rounded-2xl hover:bg-stone-200 transition">
+                 Отмена
+             </button>
+             <button onclick="app.saveProfileChanges()" class="flex-1 bg-brand-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-brand-500/30 hover:bg-brand-600 transition">
+                 Сохранить
+             </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" defer></script>
+
+  <script>
+    // =========================================================
+    // GOOGLE AUTHENTICATION HELPER
+    // =========================================================
+    
+    function handleCredentialResponse(response) {
+      console.log("Encoded JWT ID token: " + response.credential);
+      const responsePayload = decodeJwt(response.credential);
+
+      // Регистрируем пользователя
+      app.isLoggedIn = true;
+      app.userName = responsePayload.name; 
+      app.userAvatar = responsePayload.picture; 
+      app.userDesc = 'Пользователь Google'; 
+      app.saveSession();
+
+      UI.toast(`Добро пожаловать, ${responsePayload.given_name}!`);
+      UI.renderAll();
+      UI.openProfileModal(); 
+    }
+
+    function decodeJwt(token) {
+        var base64Url = token.split('.')[1];
+        var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    }
+
+    // =========================================================
+    // APP LOGIC
+    // =========================================================
+
+    const app = {
+      currentTab: 'events',
+      currentLang: 'ru',
+      currentTheme: 'light',
+      isLoggedIn: false,
+      userName: 'Гость',
+      userDesc: 'Гид по Алматы',
+      userAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&h=160',
+      userInterests: [], 
+      registrationTemp: {}, 
+
+      saved: new Set(),
+      joined: new Set(),
+      searchQuery: '',
+      activeCategory: 'all',
+      userXP: 0,
+      userLevel: 1,
+      badges: [],
+      currentDetailId: null,
+      currentDetailType: null,
+
+      categories: [
+        { id: 'all', name: 'Все', icon: 'fa-layer-group' },
+        { id: 'Party', name: 'Туса', icon: 'fa-music' },
+        { id: 'Sport', name: 'Спорт', icon: 'fa-person-running' },
+        { id: 'Art', name: 'Искусство', icon: 'fa-palette' },
+        { id: 'Food', name: 'Еда', icon: 'fa-utensils' },
+        { id: 'Walks', name: 'Прогулки', icon: 'fa-person-walking' },
+        { id: 'Mountains', name: 'Горы', icon: 'fa-mountain' },
+        { id: 'Coffee', name: 'Кофе', icon: 'fa-mug-hot' },
+      ],
+
+      placesData: [
+        {
+          id: 1,
+          title: { ru: "Кино под открытым небом", en: "Open Air Cinema" },
+          location: "Gorky Park",
+          date: "Сегодня, 20:00",
+          type: "Party",
+          price: 1,
+          image: "https://sxodim.com/uploads/posts/2023/04/11/optimized/cd32d400b0dd9c1186721be9f6bb3dfd_1522x570-q-85.jpg",
+          description: { ru: "Смотрим классику под звездами.", en: "Watch classic movies under the stars." },
+          participants: [],
+          likes: 0,
+          telegramLink: "https://t.me/qalakoz_general"
+        },
+        {
+          id: 2,
+          title: { ru: "Городской марафон", en: "City Marathon" },
+          location: "Центр города",
+          date: "Воскресенье, 07:00",
+          type: "Sport",
+          price: 2,
+          image: "https://almaty-marathon.kz/userdata/uploads/u197546/1728382340.jpg",
+          description: { ru: "Ежегодный забег для всех.", en: "Annual city run for everyone." },
+          participants: [],
+          likes: 0,
+          telegramLink: "https://t.me/qalakoz_general"
+        },
+        {
+          id: 3,
+          title: { ru: "Выставка современного искусства", en: "Art Exhibition" },
+          location: "Галерея",
+          date: "Пятница, 18:00",
+          type: "Art",
+          price: 3,
+          image: "https://static.tengrinews.kz/userdata/u311/2025-09/resize/0bc897d2eda7ea2f41eb0b314c5e1fc4.jpg",
+          description: { ru: "Открытие галереи.", en: "Modern art gallery opening." },
+          participants: [],
+          likes: 0,
+          telegramLink: "https://t.me/qalakoz_general"
+        }
+      ],
+
+      guildsData: [
+        {
+          id: 101,
+          name: "Mountain Hikers",
+          desc: "Каждые выходные ходим в горы. Присоединяйся!",
+          image: "https://images.pexels.com/photos/14902642/pexels-photo-14902642.jpeg?auto=compress&cs=tinysrgb&w=1260",
+          members: [],
+          likes: 0,
+          telegramLink: "https://t.me/qalakoz_general"
+        },
+        {
+          id: 102,
+          name: "Board Game Geeks",
+          desc: "D&D, Catan и всё такое. Играем по пятницам.",
+          image: "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=1200",
+          members: [],
+          likes: 0,
+          telegramLink: "https://t.me/qalakoz_general"
+        }
+      ],
+
+      init() {
+        this.loadTheme();
+        this.loadSession();
+        this.seedParticipantsIfEmpty();
+        UI.renderAll();
+        UI.switchTab(this.currentTab);
+        if (!document.getElementById('aiHistory').innerHTML.trim()) {
+          UI.appendAIMessage('bot', '👋 Привет! Я QalaKöz — ваш AI-гид по Алматы. Спросите что угодно.');
+        }
+        
+        // Попытка инициализации Google с задержкой (чтобы скрипт точно загрузился)
+        setTimeout(() => {
+            if (window.google) {
+                google.accounts.id.initialize({
+                    client_id: '803176006972-8cgnp02e9nkdgo3g5fc4i8b5cvuac5ue.apps.googleusercontent.com',
+                    callback: handleCredentialResponse,
+                    cancel_on_tap_outside: true
+                });
+            }
+        }, 1000);
+      },
+
+      // ... (Остальные методы app: seedParticipantsIfEmpty, loadSession, etc. БЕЗ ИЗМЕНЕНИЙ) ...
+      seedParticipantsIfEmpty() {
+        const demoAvatars = [
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&h=120',
+          'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=120&h=120',
+          'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&h=120',
+        ];
+        this.placesData.forEach((e, idx) => {
+          if (!Array.isArray(e.participants)) e.participants = [];
+          if (e.participants.length === 0) {
+            e.participants = demoAvatars.slice(0, (idx % 3) + 1).map((a, i) => ({ id: 'd' + i, avatar: a }));
+          }
+        });
+        this.guildsData.forEach((g, idx) => {
+          if (!Array.isArray(g.members)) g.members = [];
+          if (g.members.length === 0) {
+            g.members = demoAvatars.slice(0, (idx % 3) + 1).map((a, i) => ({ id: 'd' + i, avatar: a }));
+          }
+        });
+      },
+
+      loadSession() {
+        const raw = localStorage.getItem('alag_user');
+        if (!raw) return;
+        try {
+          const data = JSON.parse(raw);
+          this.isLoggedIn = !!data.isLoggedIn;
+          this.userName = data.userName || this.userName;
+          this.userDesc = data.userDesc || this.userDesc;
+          this.userAvatar = data.userAvatar || this.userAvatar;
+          this.userInterests = Array.isArray(data.userInterests) ? data.userInterests : []; 
+          this.userXP = data.userXP || 0;
+          this.userLevel = data.userLevel || 1;
+          this.badges = Array.isArray(data.badges) ? data.badges : [];
+          this.saved = new Set(Array.isArray(data.saved) ? data.saved : []);
+          this.joined = new Set(Array.isArray(data.joined) ? data.joined : []);
+          this.currentTheme = data.currentTheme || this.currentTheme;
+          this.currentLang = data.currentLang || 'ru';
+          this.setTheme(this.currentTheme);
+          const ev = localStorage.getItem('alag_events');
+          const gd = localStorage.getItem('alag_guilds');
+          if (ev) this.placesData = JSON.parse(ev);
+          if (gd) this.guildsData = JSON.parse(gd);
+        } catch (e) {
+          console.warn('Session load failed', e);
+        }
+      },
+
+      saveSession() {
+        const data = {
+          isLoggedIn: this.isLoggedIn,
+          userName: this.userName,
+          userDesc: this.userDesc,
+          userAvatar: this.userAvatar,
+          userInterests: this.userInterests, 
+          userXP: this.userXP,
+          userLevel: this.userLevel,
+          badges: this.badges,
+          saved: Array.from(this.saved),
+          joined: Array.from(this.joined),
+          currentTheme: this.currentTheme,
+          currentLang: this.currentLang
+        };
+        localStorage.setItem('alag_user', JSON.stringify(data));
+        localStorage.setItem('alag_events', JSON.stringify(this.placesData));
+        localStorage.setItem('alag_guilds', JSON.stringify(this.guildsData));
+      },
+
+      loadTheme() {
+        const saved = localStorage.getItem('alag_theme') || 'light';
+        this.setTheme(saved);
+      },
+
+      setTheme(theme) {
+        this.currentTheme = theme;
+        const root = document.documentElement;
+        if (theme === 'dark') root.classList.add('dark');
+        else root.classList.remove('dark');
+        localStorage.setItem('alag_theme', theme);
+        this.saveSession();
+      },
+
+      setLang(lang) {
+        this.currentLang = lang;
+        this.saveSession();
+        UI.renderAll();
+        UI.toast('Язык: ' + lang.toUpperCase());
+      },
+
+      getLoc(obj) {
+        if (!obj) return '';
+        if (typeof obj === 'string') return obj;
+        return obj[this.currentLang] || obj.ru || obj.en || '';
+      },
+
+      validateGmail(email) {
+        return typeof email === 'string' && email.toLowerCase().endsWith('@gmail.com') && email.length > 10;
+      },
+
+      addXP(amount, reason) {
+        if (!this.isLoggedIn) return;
+        this.userXP += amount;
+        const newLevel = Math.floor(this.userXP / 100) + 1;
+        if (newLevel > this.userLevel) {
+          this.userLevel = newLevel;
+          UI.toast(`🎉 Level Up! Теперь уровень ${this.userLevel}`);
+        } else {
+          UI.toast(`+${amount} XP: ${reason}`);
+        }
+        this.checkBadges();
+        this.saveSession();
+        UI.renderProfile();
+      },
+
+      hasBadge(id) { return this.badges.some(b => b.id === id); },
+
+      checkBadges() {
+        const earned = [];
+        if (this.userXP >= 50 && !this.hasBadge('novice')) earned.push({ id: 'novice', icon: '🐣', name: 'Novice' });
+        if (this.joined.size >= 1 && !this.hasBadge('social')) earned.push({ id: 'social', icon: '🤝', name: 'Social' });
+        if (this.userXP >= 300 && !this.hasBadge('expert')) earned.push({ id: 'expert', icon: '🦁', name: 'Expert' });
+        earned.forEach(b => {
+          this.badges.push(b);
+          UI.toast(`🏆 Бейдж: ${b.name}`);
+        });
+      },
+
+      // Кнопка Google
+      loginGoogle() {
+        if (window.google) {
+            google.accounts.id.cancel(); 
+            google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed()) {
+                    console.log("Not displayed:", notification.getNotDisplayedReason());
+                    if (notification.getNotDisplayedReason() === 'suppressed_by_user') {
+                        UI.toast('Откройте в Инкогнито (вы закрыли окно ранее)');
+                    } else {
+                        UI.toast('Ошибка Google Auth');
+                    }
+                }
+            });
+        } else {
+            UI.toast('Google загружается... нажмите еще раз');
+        }
+      },
+
+      processLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass = document.getElementById('loginPass').value.trim();
+        const err = document.getElementById('authErr');
+        err.classList.add('hidden');
+        if (!email || !pass) {
+          err.textContent = 'Введите Email и пароль';
+          err.classList.remove('hidden');
+          return;
+        }
+        if (!this.validateGmail(email)) {
+          err.textContent = 'Некорректный Gmail';
+          err.classList.remove('hidden');
+          return;
+        }
+        this.isLoggedIn = true;
+        if (!this.userName || this.userName === 'Гость') this.userName = 'Almas';
+        this.userDesc = this.userDesc || 'Almaty Explorer';
+        this.saveSession();
+        UI.toast('Добро пожаловать!');
+        UI.renderAll();
+        UI.openProfileModal();
+      },
+
+      // REGISTRATION
+      processRegisterStep1() {
+        const name = document.getElementById('regName').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const pass = document.getElementById('regPass').value.trim();
+        const err = document.getElementById('regErr');
+        err.classList.add('hidden');
+        if (!name || !email || !pass) {
+          err.textContent = 'Заполните все поля';
+          err.classList.remove('hidden');
+          return;
+        }
+        if (!this.validateGmail(email)) {
+          err.textContent = 'Некорректный Gmail';
+          err.classList.remove('hidden');
+          return;
+        }
+        this.registrationTemp = { name, email, interests: [], source: '' };
+        UI.toggleAuthMode('onboarding_interests');
+      },
+
+      processRegisterStep2() {
+        if(this.registrationTemp.interests.length === 0) {
+            UI.toast("Выберите хотя бы 1 интерес");
+            return;
+        }
+        UI.toggleAuthMode('onboarding_source');
+      },
+
+      selectSource(source) {
+        document.querySelectorAll('.source-btn').forEach(btn => {
+            btn.classList.remove('bg-brand-500', 'text-white', 'border-brand-500');
+            btn.classList.add('text-stone-700', 'dark:text-white', 'hover:bg-stone-50', 'dark:hover:bg-white/10');
+        });
+        const target = event.currentTarget;
+        target.classList.remove('text-stone-700', 'dark:text-white', 'hover:bg-stone-50', 'dark:hover:bg-white/10');
+        target.classList.add('bg-brand-500', 'text-white', 'border-brand-500');
+        this.registrationTemp.source = source;
+      },
+
+      finishRegistration() {
+          if(!this.registrationTemp.source) {
+              UI.toast("Выберите вариант");
+              return;
+          }
+          this.isLoggedIn = true;
+          this.userName = this.registrationTemp.name;
+          this.userDesc = 'Новичок в городе';
+          this.userInterests = this.registrationTemp.interests;
+          this.saveSession();
+          UI.toast('Регистрация завершена!');
+          this.registrationTemp = {}; 
+          UI.toggleAuthMode('profile');
+          UI.renderAll();
+      },
+
+      toggleTempInterest(id) {
+          if(this.registrationTemp.interests.includes(id)) {
+              this.registrationTemp.interests = this.registrationTemp.interests.filter(x => x !== id);
+          } else {
+              this.registrationTemp.interests.push(id);
+          }
+          UI.renderOnboardingTags();
+      },
+
+      saveProfileChanges() {
+          const name = document.getElementById('editName').value.trim();
+          const avatar = document.getElementById('editAvatar').value.trim();
+          if(!name) return UI.toast("Имя не может быть пустым");
+          this.userName = name;
+          if(avatar) this.userAvatar = avatar;
+          this.saveSession();
+          UI.toast("Профиль обновлен ✅");
+          UI.toggleAuthMode('profile');
+          UI.renderAll();
+      },
+
+      simulateLogout() {
+        this.isLoggedIn = false;
+        this.userName = 'Гость';
+        this.userDesc = 'Гид по Алматы';
+        this.userXP = 0;
+        this.userLevel = 1;
+        this.userInterests = [];
+        this.badges = [];
+        this.saved = new Set();
+        this.joined = new Set();
+        this.saveSession();
+        if (window.google) google.accounts.id.disableAutoSelect();
+        UI.toast('Вы вышли');
+        UI.closeProfileModal();
+        UI.renderAll();
+      },
+
+      toggleSave(type, id) {
+        const key = `${type}:${id}`;
+        if (this.saved.has(key)) this.saved.delete(key);
+        else this.saved.add(key);
+        this.saveSession();
+        UI.renderAll();
+      },
+
+      toggleLike(type, id) {
+        const item = type === 'event'
+          ? this.placesData.find(e => e.id === id)
+          : this.guildsData.find(g => g.id === id);
+        if (!item) return;
+        item.likes = (item.likes || 0) + 1;
+        this.saveSession();
+        UI.renderAll();
+        if (this.currentDetailId === id && this.currentDetailType === type) UI.openDetail(type, id);
+      },
+
+      join(type, id) {
+        if (!this.isLoggedIn) {
+          UI.toast('Сначала войдите в профиль');
+          UI.openProfileModal();
+          return;
+        }
+        const key = `${type}:${id}`;
+        const item = type === 'event'
+          ? this.placesData.find(e => e.id === id)
+          : this.guildsData.find(g => g.id === id);
+        if (!item) return;
+        const me = { id: 'me', avatar: this.userAvatar };
+        const isJoined = this.joined.has(key);
+        if (!isJoined) {
+          this.joined.add(key);
+          if (type === 'event') {
+            item.participants = item.participants || [];
+            item.participants.push(me);
+          } else {
+            item.members = item.members || [];
+            item.members.push(me);
+          }
+          this.addXP(50, 'Join');
+          UI.toast(type === 'event' ? 'Вы участвуете!' : 'Вы в гильдии!');
+        } else {
+          this.joined.delete(key);
+          if (type === 'event') {
+            item.participants = (item.participants || []).filter(p => p.id !== 'me');
+          } else {
+            item.members = (item.members || []).filter(p => p.id !== 'me');
+          }
+          UI.toast('Отменено');
+        }
+        this.saveSession();
+        UI.renderAll();
+        if (this.currentDetailId === id && this.currentDetailType === type) UI.openDetail(type, id);
+      },
+
+      create(mode, formData) {
+        if (!this.isLoggedIn) {
+          UI.toast('Сначала войдите');
+          UI.openProfileModal();
+          return;
+        }
+        if (mode === 'guild') {
+          const newGuild = {
+            id: Date.now(),
+            name: formData.title,
+            desc: formData.description || 'Без описания',
+            image: formData.image || `https://source.unsplash.com/random/1200x900/?community`,
+            members: [{ id: 'me', avatar: this.userAvatar }],
+            likes: 0,
+            telegramLink: "https://t.me/qalakoz_general"
+          };
+          this.guildsData.unshift(newGuild);
+          this.joined.add(`guild:${newGuild.id}`);
+          this.addXP(100, 'Guild Created');
+          UI.toast('Гильдия создана 🏰');
+        } else {
+          const newEvent = {
+            id: Date.now(),
+            title: { ru: formData.title, en: formData.title },
+            description: { ru: formData.description || 'Без описания', en: formData.description || 'No description' },
+            location: formData.location || 'Алматы',
+            date: formData.date || 'Скоро',
+            type: formData.category || 'Party',
+            price: parseInt(formData.price || '1', 10),
+            image: formData.image || `https://source.unsplash.com/random/1200x900/?almaty,${encodeURIComponent(formData.category || 'event')}`,
+            participants: [{ id: 'me', avatar: this.userAvatar }],
+            likes: 0,
+            telegramLink: "https://t.me/qalakoz_general"
+          };
+          this.placesData.unshift(newEvent);
+          this.joined.add(`event:${newEvent.id}`);
+          this.addXP(100, 'Event Created');
+          UI.toast('Событие опубликовано ✨');
+        }
+        this.saveSession();
+        UI.closeCreateModal();
+        UI.renderAll();
+      },
+
+      async askAI(text) {
+        const systemPrompt = "You are QalaKöz, a helpful guide to Almaty. Answer in the same language as the user. Keep answers short and useful.";
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) await delay(2500);
+            const seed = Math.floor(Math.random() * 1000000);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
+            const response = await fetch('https://text.pollinations.ai/', {
+              method: 'POST',
+              cache: 'no-store',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: text }
+                ],
+                model: 'openai',
+                seed
+              }),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (response.ok) {
+              const reply = await response.text();
+              return { ok: true, text: reply };
+            }
+          } catch (e) {
+            console.warn('AI attempt failed', attempt, e);
+          }
+        }
+        return { ok: false, text: 'Сервис занят. Попробуйте ещё раз.' };
+      }
+    };
+
+    // =========================================================
+    // UI ADAPTER
+    // =========================================================
+
+    const UI = {
+      toast(msg) {
+        let el = document.getElementById('toast');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'toast';
+          el.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-full bg-stone-900/90 text-white text-sm font-bold shadow-lg backdrop-blur-sm transition-all opacity-0 translate-y-3';
+          document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%,0)';
+        clearTimeout(el._t);
+        el._t = setTimeout(() => {
+          el.style.opacity = '0';
+          el.style.transform = 'translate(-50%,12px)';
+        }, 2400);
+      },
+
+      onSearch(q) {
+        app.searchQuery = (q || '').toLowerCase().trim();
+        this.renderEvents();
+        this.renderSaved();
+      },
+
+      switchTab(tab) {
+        app.currentTab = tab;
+        const map = {
+          events: 'view_events',
+          guilds: 'view_guilds',
+          saved: 'view_saved',
+          ai: 'view_ai'
+        };
+
+        Object.values(map).forEach(id => document.getElementById(id).classList.add('hidden'));
+        document.getElementById(map[tab]).classList.remove('hidden');
+
+        const dSearch = document.getElementById('searchBarDesktop');
+        const mSearch = document.getElementById('searchBarMobile');
+          
+        if (tab === 'events') {
+          if (dSearch) dSearch.classList.remove('invisible', 'opacity-0');
+          if (mSearch) mSearch.classList.remove('hidden');
+        } else {
+          if (dSearch) dSearch.classList.add('invisible', 'opacity-0');
+          if (mSearch) mSearch.classList.add('hidden');
+          app.searchQuery = '';
+          const inpD = document.getElementById('searchInputDesktop');
+          const inpM = document.getElementById('searchInputMobile');
+          if(inpD) inpD.value = '';
+          if(inpM) inpM.value = '';
+        }
+
+        document.getElementById('categoryFilters').classList.toggle('hidden', tab !== 'events');
+
+        const tabs = ['events','guilds','saved','ai'];
+        tabs.forEach(t => {
+          const btn = document.getElementById('tabBtn_' + t);
+          if (!btn) return;
+          const active = (t === tab);
+          btn.className = [
+            'px-4 py-2 rounded-full text-sm font-bold transition border',
+            active
+              ? 'bg-stone-900 text-white border-stone-900 shadow-lg'
+              : 'bg-white/70 dark:bg-white/5 dark:text-white text-stone-700 border-stone-200/70 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
+          ].join(' ');
+        });
+
+        const mNavIds = ['events', 'guilds', 'saved', 'ai'];
+        mNavIds.forEach(t => {
+          const el = document.getElementById('mnav_' + t);
+          if(el) {
+              if(t === tab) el.classList.add('text-brand-500');
+              else el.classList.remove('text-brand-500');
+          }
+        });
+
+        const title = document.getElementById('greetingTitle');
+        const sub = document.getElementById('greetingSub');
+        const name = app.isLoggedIn ? app.userName : 'друг';
+        if (tab === 'ai') {
+          title.textContent = `Спроси у AI, ${name}!`;
+          sub.textContent = 'Коротко, полезно, по делу.';
+        } else if (tab === 'guilds') {
+          title.textContent = `Гильдии для тусовок, ${name}`;
+          sub.textContent = 'Найди команду и не ходи в одиночку.';
+        } else if (tab === 'saved') {
+          title.textContent = `Твои сохранёнки, ${name}`;
+          sub.textContent = 'Чтобы не потерять — и всё равно забыть 🙂';
+        } else {
+          title.textContent = `Привет, ${name}! 👋`;
+          sub.textContent = 'Что интересного в Алматы сегодня?';
+        }
+
+        if (tab === 'events') this.renderEvents();
+        if (tab === 'guilds') this.renderGuilds();
+        if (tab === 'saved') this.renderSaved();
+        if (tab === 'ai') this.ensureAIWelcome();
+      },
+
+      ensureAIWelcome() {
+        const hist = document.getElementById('aiHistory');
+        if (!hist.innerHTML.trim()) {
+          this.appendAIMessage('bot', '👋 Привет! Я QalaKöz — ваш AI-гид по Алматы. Спросите что угодно.');
+        }
+      },
+
+      renderCategories() {
+        const container = document.getElementById('categoryFilters');
+        container.innerHTML = app.categories.map(cat => {
+          const active = app.activeCategory === cat.id;
+          return `
+            <button onclick="UI.setCategory('${cat.id}')"
+              class="whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2
+              ${active
+                ? 'bg-stone-900 text-white shadow-lg transform scale-[1.02] border border-stone-900'
+                : 'bg-white dark:bg-white/5 dark:text-white text-stone-600 border border-stone-100 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'}">
+              <i class="fa-solid ${cat.icon}"></i> ${cat.name}
+            </button>
+          `;
+        }).join('');
+      },
+
+      setCategory(catId) {
+        app.activeCategory = catId;
+        this.renderEvents();
+      },
+
+      renderEvents() {
+        this.renderCategories();
+        const view = document.getElementById('view_events');
+        let data = [...app.placesData];
+        if (app.activeCategory !== 'all') {
+          data = data.filter(e => e.type === app.activeCategory);
+        }
+        if (app.searchQuery) {
+          data = data.filter(e => {
+            const t = app.getLoc(e.title).toLowerCase();
+            const loc = (e.location || '').toLowerCase();
+            return t.includes(app.searchQuery) || loc.includes(app.searchQuery);
+          });
+        }
+        if (data.length === 0) {
+          view.innerHTML = `
+            <div class="col-span-full bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 rounded-[28px] p-10 text-center text-stone-500 dark:text-white/60">
+              Пусто. Либо ты всё уже посмотрел, либо фильтры слишком суровые.
+            </div>`;
+          return;
+        }
+        view.innerHTML = data.map(e => this.eventCardHTML(e)).join('');
+      },
+
+      eventCardHTML(e) {
+        const isJoined = app.joined.has(`event:${e.id}`);
+        const isSaved = app.saved.has(`event:${e.id}`);
+        const title = app.getLoc(e.title);
+        const desc = app.getLoc(e.description);
+        const participants = (e.participants || []).slice(0, 3).map(p => `
+          <img src="${p.avatar}" class="w-8 h-8 rounded-full border-2 border-white dark:border-stone-850 ring-1 ring-stone-100 dark:ring-white/10 object-cover">
+        `).join('');
+        const extra = (e.participants || []).length > 3 ? `
+          <div class="w-8 h-8 rounded-full bg-stone-100 dark:bg-white/10 border-2 border-white dark:border-stone-850 flex items-center justify-center text-[10px] font-extrabold text-stone-500 dark:text-white/70">
+            +${(e.participants || []).length - 3}
+          </div>` : '';
+        const categoryName = app.categories.find(c => c.id === e.type)?.name || 'Event';
+        return `
+          <div class="group bg-white dark:bg-white/5 rounded-[32px] overflow-hidden shadow-sm hover:shadow-floating transition-all duration-500 cursor-pointer border border-stone-100/60 dark:border-white/10 flex flex-col h-full animate-fade-in"
+               onclick="UI.openDetail('event', ${e.id})">
+            <div class="relative h-64 overflow-hidden">
+              <img src="${e.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-70"></div>
+              <div class="absolute top-4 right-4 bg-white/95 dark:bg-black/30 backdrop-blur-md px-4 py-2 rounded-2xl text-[11px] font-extrabold shadow-sm uppercase tracking-wider text-stone-800 dark:text-white flex flex-col items-center">
+                <span>${(e.date || '').split(',')[0] || 'Скоро'}</span>
+              </div>
+              <div class="absolute top-4 left-4 bg-stone-900/40 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[10px] font-extrabold uppercase tracking-wide border border-white/10">
+                ${categoryName}
+              </div>
+              <button class="absolute bottom-4 left-4 w-11 h-11 rounded-2xl bg-white/90 dark:bg-black/30 backdrop-blur-md flex items-center justify-center text-stone-800 dark:text-white hover:bg-white dark:hover:bg-black/40 transition"
+                      onclick="event.stopPropagation(); app.toggleSave('event', ${e.id});"
+                      title="Сохранить">
+                <i class="fa-solid fa-bookmark ${isSaved ? 'text-brand-500' : ''}"></i>
+              </button>
+              <button class="absolute bottom-4 right-4 w-11 h-11 rounded-2xl bg-white/90 dark:bg-black/30 backdrop-blur-md flex items-center justify-center text-stone-800 dark:text-white hover:bg-white dark:hover:bg-black/40 transition"
+                      onclick="event.stopPropagation(); app.toggleLike('event', ${e.id});"
+                      title="Лайк">
+                <i class="fa-solid fa-heart ${((e.likes||0)>0) ? 'text-brand-500' : ''}"></i>
+              </button>
+            </div>
+            <div class="p-6 flex flex-col flex-grow">
+              <div class="mb-1 flex items-center text-xs font-bold text-brand-500 uppercase tracking-wide">
+                <i class="fa-solid fa-location-dot mr-1.5"></i> ${(e.location || 'Алматы')}
+              </div>
+              <h3 class="text-xl font-extrabold text-stone-900 dark:text-white leading-tight mb-2 group-hover:text-brand-500 transition-colors">
+                ${title}
+              </h3>
+              <p class="text-sm text-stone-500 dark:text-white/60 line-clamp-3 mb-4">
+                ${desc}
+              </p>
+              <div class="mt-auto pt-4 flex items-center justify-between border-t border-stone-100 dark:border-white/10">
+                <div class="flex items-center">
+                  <div class="flex -space-x-3">
+                    ${participants}${extra}
+                  </div>
+                  <span class="ml-3 text-xs text-stone-400 dark:text-white/50 font-bold">
+                    ${(e.participants || []).length} идут
+                  </span>
+                </div>
+                <div class="w-10 h-10 rounded-full ${isJoined ? 'bg-brand-50 text-brand-500 dark:bg-white/10 dark:text-brand-500' : 'bg-stone-50 text-stone-800 dark:bg-white/10 dark:text-white'} flex items-center justify-center transition-colors group-hover:bg-brand-500 group-hover:text-white">
+                  <i class="fa-solid ${isJoined ? 'fa-check' : 'fa-arrow-right'}"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      },
+
+      renderGuilds() {
+        const container = document.getElementById('guildsList');
+        let data = [...app.guildsData];
+        if (app.searchQuery) {
+          data = data.filter(g => g.name.toLowerCase().includes(app.searchQuery) || (g.desc||'').toLowerCase().includes(app.searchQuery));
+        }
+        container.innerHTML = data.map(g => {
+          const isJoined = app.joined.has(`guild:${g.id}`);
+          const isSaved = app.saved.has(`guild:${g.id}`);
+          const members = (g.members || []);
+          const membersHtml = members.slice(0, 4).map(p => `
+            <img src="${p.avatar}" class="w-9 h-9 rounded-full border-2 border-white dark:border-stone-850 ring-1 ring-stone-100 dark:ring-white/10 object-cover">
+          `).join('');
+          const extra = members.length > 4 ? `
+            <div class="w-9 h-9 rounded-full bg-stone-100 dark:bg-white/10 border-2 border-white dark:border-stone-850 flex items-center justify-center text-[10px] font-extrabold text-stone-500 dark:text-white/70">
+              +${members.length - 4}
+            </div>` : '';
+          return `
+            <div class="group bg-white dark:bg-white/5 rounded-[32px] overflow-hidden shadow-sm hover:shadow-floating transition-all duration-500 cursor-pointer border border-stone-100/60 dark:border-white/10 flex flex-col animate-fade-in"
+                 onclick="UI.openDetail('guild', ${g.id})">
+              <div class="relative h-44 overflow-hidden">
+                <img src="${g.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-80"></div>
+                <div class="absolute top-4 left-4 bg-stone-900/45 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[10px] font-extrabold uppercase tracking-wide border border-white/10">
+                  Guild
+                </div>
+                <button class="absolute bottom-4 left-4 w-11 h-11 rounded-2xl bg-white/90 dark:bg-black/30 backdrop-blur-md flex items-center justify-center text-stone-800 dark:text-white hover:bg-white dark:hover:bg-black/40 transition"
+                        onclick="event.stopPropagation(); app.toggleSave('guild', ${g.id});"
+                        title="Сохранить">
+                  <i class="fa-solid fa-bookmark ${isSaved ? 'text-brand-500' : ''}"></i>
+                </button>
+                <button class="absolute bottom-4 right-4 w-11 h-11 rounded-2xl bg-white/90 dark:bg-black/30 backdrop-blur-md flex items-center justify-center text-stone-800 dark:text-white hover:bg-white dark:hover:bg-black/40 transition"
+                        onclick="event.stopPropagation(); app.toggleLike('guild', ${g.id});"
+                        title="Лайк">
+                  <i class="fa-solid fa-heart ${((g.likes||0)>0) ? 'text-brand-500' : ''}"></i>
+                </button>
+              </div>
+              <div class="p-6 flex flex-col flex-grow">
+                <h3 class="text-xl font-extrabold text-stone-900 dark:text-white leading-tight mb-2 group-hover:text-brand-500 transition-colors">
+                  ${g.name}
+                </h3>
+                <p class="text-sm text-stone-500 dark:text-white/60 line-clamp-3 mb-4">${g.desc || ''}</p>
+                <div class="mt-auto pt-4 flex items-center justify-between border-t border-stone-100 dark:border-white/10">
+                  <div class="flex items-center">
+                    <div class="flex -space-x-3">${membersHtml}${extra}</div>
+                    <span class="ml-3 text-xs text-stone-400 dark:text-white/50 font-bold">
+                      ${members.length} в гильдии
+                    </span>
+                  </div>
+                  <div class="w-10 h-10 rounded-full ${isJoined ? 'bg-brand-50 text-brand-500 dark:bg-white/10 dark:text-brand-500' : 'bg-stone-50 text-stone-800 dark:bg-white/10 dark:text-white'} flex items-center justify-center transition-colors group-hover:bg-brand-500 group-hover:text-white">
+                    <i class="fa-solid ${isJoined ? 'fa-check' : 'fa-arrow-right'}"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      renderSaved() {
+        const keys = Array.from(app.saved);
+        const savedCount = document.getElementById('savedCount');
+        savedCount.textContent = `${keys.length} шт.`;
+        const events = [];
+        const guilds = [];
+        keys.forEach(k => {
+          const [type, idStr] = k.split(':');
+          const id = parseInt(idStr, 10);
+          if (type === 'event') {
+            const e = app.placesData.find(x => x.id === id);
+            if (e) events.push(e);
+          } else if (type === 'guild') {
+            const g = app.guildsData.find(x => x.id === id);
+            if (g) guilds.push(g);
+          }
+        });
+        const q = app.searchQuery;
+        const filterFn = (txt) => !q || (txt || '').toLowerCase().includes(q);
+        const savedEvents = events.filter(e => filterFn(app.getLoc(e.title)) || filterFn(e.location));
+        const savedGuilds = guilds.filter(g => filterFn(g.name) || filterFn(g.desc));
+        const list = document.getElementById('savedList');
+        list.innerHTML = '';
+        const blocks = [];
+        if (savedEvents.length) {
+          blocks.push(`<div class="col-span-full text-sm font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide">События</div>`);
+          blocks.push(savedEvents.map(e => this.eventCardHTML(e)).join(''));
+        }
+        if (savedGuilds.length) {
+          blocks.push(`<div class="col-span-full text-sm font-extrabold text-stone-500 dark:text-white/60 uppercase tracking-wide mt-2">Гильдии</div>`);
+          blocks.push(savedGuilds.map(g => {
+            return `
+              <div class="group bg-white dark:bg-white/5 rounded-[32px] overflow-hidden shadow-sm hover:shadow-floating transition-all duration-500 cursor-pointer border border-stone-100/60 dark:border-white/10 flex flex-col animate-fade-in"
+                   onclick="UI.openDetail('guild', ${g.id})">
+                <div class="relative h-44 overflow-hidden">
+                  <img src="${g.image}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-80"></div>
+                  <div class="absolute top-4 left-4 bg-stone-900/45 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[10px] font-extrabold uppercase tracking-wide border border-white/10">Guild</div>
+                </div>
+                <div class="p-6">
+                  <h3 class="text-xl font-extrabold text-stone-900 dark:text-white group-hover:text-brand-500 transition">${g.name}</h3>
+                  <p class="text-sm text-stone-500 dark:text-white/60 line-clamp-2 mt-2">${g.desc || ''}</p>
+                </div>
+              </div>`;
+          }).join(''));
+        }
+        if (!blocks.length) {
+          list.innerHTML = `
+            <div class="col-span-full bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 rounded-[28px] p-10 text-center text-stone-500 dark:text-white/60">
+              Тут пока пусто. Нажимай “закладку” на карточках.
+            </div>`;
+          return;
+        }
+        list.innerHTML = blocks.join('');
+      },
+
+      openDetail(type, id) {
+        app.currentDetailType = type;
+        app.currentDetailId = id;
+        const overlay = document.getElementById('detailOverlay');
+        const content = document.getElementById('detailContent');
+          
+        // Находим данные
+        const item = type === 'event'
+          ? app.placesData.find(e => e.id === id)
+          : app.guildsData.find(g => g.id === id);
+        if (!item) return;
+
+        // Подготовка переменных для шаблона
+        const isJoined = app.joined.has(`${type}:${id}`);
+        const title = type === 'event' ? app.getLoc(item.title) : item.name;
+        const desc = type === 'event' ? app.getLoc(item.description) : item.desc;
+        const image = type === 'event' ? item.image : item.image;
+        const location = type === 'event' ? (item.location || 'Алматы') : 'Сообщество';
+        const date = type === 'event' ? (item.date || 'Скоро') : 'Всегда';
+        const participants = type === 'event' ? (item.participants || []) : (item.members || []);
+        const likes = item.likes || 0;
+        const chat = item.chat || [];
+
+        // Рендер аватарок участников
+        const membersHtml = participants.map(p => `
+          <img src="${p.avatar}" class="w-10 h-10 rounded-full border-2 border-white dark:border-stone-850 ring-1 ring-stone-200 dark:ring-white/10 object-cover">
+        `).join('');
+
+        // -----------------------------------------------------------------
+        // ОСНОВНОЙ HTML ШАБЛОН ДЕТАЛЬНОГО ПРОСМОТРА
+        // -----------------------------------------------------------------
+        content.innerHTML = `
+          <div class="h-full flex flex-col lg:flex-row bg-white dark:bg-stone-850 w-full overflow-y-auto lg:overflow-hidden">
+              
+            <div class="w-full lg:w-[55%] relative flex flex-col h-auto lg:h-full lg:overflow-y-auto hide-scroll bg-stone-50 dark:bg-black/10 shrink-0">
+              
+              <div class="relative h-64 lg:h-80 shrink-0">
+                <img src="${image}" class="w-full h-full object-cover">
+                
+                <button onclick="UI.closeDetail()"
+                        class="absolute top-10 left-6 w-12 h-12 bg-stone-900/80 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 shadow-2xl hover:bg-black hover:scale-105 transition-all z-10">
+                  <i class="fa-solid fa-arrow-left text-lg"></i>
+                </button>
+                
+                <div class="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-stone-50 dark:from-stone-850 to-transparent"></div>
+              </div>
+
+              <div class="px-6 lg:px-10 pb-6 lg:pb-10 -mt-6 relative z-10 flex-grow flex flex-col">
+                <div class="bg-white dark:bg-white/5 p-6 rounded-3xl shadow-sm border border-stone-100 dark:border-white/10 mb-6">
+                  
+                  <div class="flex justify-between items-start mb-3">
+                    <div class="min-w-0 pr-4">
+                      <span class="text-brand-500 font-extrabold text-xs uppercase tracking-wider mb-1 block">${this.escapeHTML(date)}</span>
+                      <h2 class="text-xl sm:text-2xl lg:text-3xl font-extrabold text-stone-900 dark:text-white leading-tight">${this.escapeHTML(title)}</h2>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                      <button onclick="app.toggleLike('${type}', ${id})"
+                              class="w-12 h-12 rounded-2xl flex items-center justify-center transition-all
+                              ${likes > 0 ? 'bg-brand-50 text-brand-500 dark:bg-white/10' : 'bg-stone-100 text-stone-400 hover:text-brand-500 dark:bg-white/10 dark:text-white/70'}">
+                        <i class="fa-solid fa-heart text-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                    
+                  <div class="flex items-start gap-2 text-stone-600 dark:text-white/70 mb-5 text-sm">
+                    <i class="fa-solid fa-location-dot mt-1 text-brand-500"></i>
+                    <p class="font-bold text-base">${this.escapeHTML(location)}</p>
+                  </div>
+                    
+                  <p class="text-stone-600 dark:text-white/70 leading-relaxed text-sm lg:text-base mb-6">
+                    ${this.escapeHTML(desc || '')}
+                  </p>
+
+                  <div class="flex items-center justify-between p-4 bg-stone-50 dark:bg-black/10 rounded-2xl border border-stone-100 dark:border-white/10">
+                    <div class="flex items-center gap-3">
+                      <div class="flex -space-x-3">${membersHtml}</div>
+                      <span class="text-sm font-bold text-stone-500 dark:text-white/60 pl-2">${participants.length} ${type==='event' ? 'идут' : 'в гильдии'}</span>
+                    </div>
+                    <button onclick="app.toggleSave('${type}', ${id})"
+                            class="w-10 h-10 rounded-xl bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 flex items-center justify-center hover:bg-stone-50 dark:hover:bg-white/10 transition">
+                      <i class="fa-solid fa-bookmark ${app.saved.has(`${type}:${id}`) ? 'text-brand-500' : 'text-stone-400 dark:text-white/60'}"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <button onclick="app.join('${type}', ${id})"
+                        class="w-full py-4 rounded-2xl font-extrabold text-lg shadow-xl active:scale-[0.99] transition-all mt-auto mb-4 border-2
+                               ${isJoined
+                                 ? 'bg-stone-100 border-stone-100 dark:bg-white/10 dark:border-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
+                                 : 'bg-brand-500 border-brand-500 text-white hover:bg-brand-600 shadow-brand-500/30'}">
+                  ${isJoined ? (type==='event' ? 'Вы идёте (Отменить)' : 'Вы в гильдии (Выйти)') : (type==='event' ? 'Я пойду!' : 'Вступить')}
+                </button>
+              </div>
+            </div>
+
+            <div class="w-full lg:w-[45%] flex flex-col h-auto lg:h-full bg-white dark:bg-stone-850 border-t lg:border-t-0 lg:border-l border-stone-100 dark:border-white/10 relative z-20">
+              <div class="flex-grow flex flex-col items-center justify-center p-8 lg:p-12 text-center animate-fade-in">
+                <div class="w-24 h-24 bg-telegram-50 dark:bg-telegram-500/10 rounded-full flex items-center justify-center text-telegram-500 mb-6 shadow-xl shadow-telegram-500/20 animate-float">
+                    <i class="fa-brands fa-telegram text-5xl"></i>
+                </div>
+                <h3 class="text-2xl font-extrabold text-stone-900 dark:text-white mb-2">Обсуждение в Telegram</h3>
+                <p class="text-stone-500 dark:text-white/60 text-sm max-w-xs mb-8 leading-relaxed">
+                    Все детали, вопросы и координация встречи проходят в нашем удобном чате.
+                </p>
+                <a href="${item.telegramLink || '#'}" target="_blank"
+                   class="w-full max-w-xs bg-telegram-500 hover:bg-telegram-600 text-white font-extrabold py-4 rounded-2xl transition-all shadow-lg shadow-telegram-500/30 flex items-center justify-center gap-3 active:scale-[0.98]">
+                   <span>Перейти в чат</span>
+                   <i class="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      },
+
+      closeDetail() {
+        const overlay = document.getElementById('detailOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        document.body.style.overflow = '';
+        app.currentDetailId = null;
+        app.currentDetailType = null;
+      },
+
+      sendDetailMessage(type, id, text) {},
+
+      openCreateModal(mode = 'event') {
+        if (!app.isLoggedIn) {
+          this.toast('Сначала войдите');
+          this.openProfileModal();
+          return;
+        }
+        const overlay = document.getElementById('createOverlay');
+        const title = document.getElementById('createTitle');
+        const form = overlay.querySelector('form');
+        form.mode.value = mode;
+        title.textContent = mode === 'guild' ? 'Создать гильдию' : 'Создать событие';
+        const catRow = form.querySelector('select[name="category"]').closest('div');
+        const locRow = form.querySelector('input[name="location"]').closest('div');
+        const dateRow = form.querySelector('input[name="date"]').closest('div');
+        const priceRow = form.querySelector('select[name="price"]').closest('div');
+        catRow.style.display = (mode === 'guild') ? 'none' : '';
+        locRow.style.display = (mode === 'guild') ? 'none' : '';
+        dateRow.style.display = (mode === 'guild') ? 'none' : '';
+        priceRow.style.display = (mode === 'guild') ? 'none' : '';
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+      },
+
+      closeCreateModal() {
+        const overlay = document.getElementById('createOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      },
+
+      submitCreate(e) {
+        e.preventDefault();
+        const form = e.target;
+        const mode = form.mode.value;
+        const data = {
+          title: form.title.value.trim(),
+          category: form.category?.value,
+          date: form.date?.value?.trim(),
+          location: form.location?.value?.trim(),
+          description: form.description.value.trim(),
+          price: form.price?.value,
+          image: form.image.value.trim()
+        };
+        if (!data.title) return this.toast('Название пустое');
+        if (!data.description) return this.toast('Описание пустое');
+        app.create(mode, data);
+        form.reset();
+      },
+
+      escapeHTML(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      },
+
+      appendAIMessage(who, text) {
+        const hist = document.getElementById('aiHistory');
+        const isMe = who === 'user';
+        const bubble = document.createElement('div');
+        bubble.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-fade-in`;
+        bubble.innerHTML = `
+          <div class="max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
+              ${isMe
+                ? 'bg-brand-500 text-white rounded-br-none'
+                : 'bg-white dark:bg-white/5 text-stone-700 dark:text-white border border-stone-100 dark:border-white/10 rounded-bl-none'}">
+            ${this.escapeHTML(text)}
+          </div>
+        `;
+        hist.appendChild(bubble);
+        hist.scrollTop = hist.scrollHeight;
+      },
+
+      appendAITyping() {
+        const hist = document.getElementById('aiHistory');
+        const wrap = document.createElement('div');
+        wrap.id = 'aiTyping';
+        wrap.className = 'flex items-start animate-fade-in';
+        wrap.innerHTML = `
+          <div class="px-4 py-3 rounded-2xl bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 text-stone-500 dark:text-white/60 text-sm font-bold">
+            <i class="fa-solid fa-spinner fa-spin mr-2"></i>Печатает...
+          </div>
+        `;
+        hist.appendChild(wrap);
+        hist.scrollTop = hist.scrollHeight;
+      },
+
+      removeAITyping() {
+        const el = document.getElementById('aiTyping');
+        if (el) el.remove();
+      },
+
+      async sendAI(e) {
+        e.preventDefault();
+        const input = document.getElementById('aiInput');
+        const text = input.value.trim();
+        if (!text) return;
+        this.appendAIMessage('user', text);
+        input.value = '';
+        this.appendAITyping();
+        const res = await app.askAI(text);
+        this.removeAITyping();
+        if (res.ok) this.appendAIMessage('bot', res.text);
+        else this.appendAIMessage('bot', res.text);
+      },
+
+      toggleAuthMode(mode) {
+        const views = {
+            'login': document.getElementById('profileAuthView'),
+            'register': document.getElementById('profileRegisterView'),
+            'profile': document.getElementById('profileUserView'),
+            'edit': document.getElementById('profileEditView'),
+            'onboarding_interests': document.getElementById('onboardingInterestsView'),
+            'onboarding_source': document.getElementById('onboardingSourceView')
+        };
+        
+        // Hide all first
+        Object.values(views).forEach(el => el.classList.add('hidden'));
+        
+        // Show target
+        if(views[mode]) views[mode].classList.remove('hidden');
+
+        // Logic hooks
+        if(mode === 'onboarding_interests') {
+            this.renderOnboardingTags();
+        }
+        if(mode === 'edit') {
+            document.getElementById('editName').value = app.userName;
+            document.getElementById('editAvatar').value = app.userAvatar;
+        }
+      },
+
+      renderOnboardingTags() {
+          const container = document.getElementById('onboardingTags');
+          container.innerHTML = app.categories.filter(c => c.id !== 'all').map(cat => {
+              const active = app.registrationTemp.interests && app.registrationTemp.interests.includes(cat.id);
+              return `
+                <button onclick="app.toggleTempInterest('${cat.id}')" 
+                   class="w-full flex items-center justify-start px-4 py-3 rounded-xl border transition-all gap-3 ${active ? 'bg-brand-500 text-white border-brand-500 shadow-lg shadow-brand-500/30' : 'bg-stone-50 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-600 dark:text-white hover:bg-white dark:hover:bg-white/10'}">
+                   <i class="fa-solid ${cat.icon} text-lg"></i>
+                   <span class="text-xs font-bold">${cat.name}</span>
+                </button>
+              `;
+          }).join('');
+      },
+
+      openProfileModal() {
+        const overlay = document.getElementById('profileOverlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        this.renderProfile();
+      },
+
+      closeProfileModal() {
+        const overlay = document.getElementById('profileOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      },
+
+      renderProfile() {
+        const navAvatar = document.getElementById('navAvatar');
+        navAvatar.src = app.userAvatar;
+          
+        const menuName = document.getElementById('menuUserName');
+        const menuDesc = document.getElementById('menuUserDesc');
+        if(menuName && menuDesc) {
+            menuName.textContent = app.isLoggedIn ? app.userName : 'Гость';
+            menuDesc.textContent = app.userDesc;
+        }
+
+        if (!app.isLoggedIn) {
+          this.toggleAuthMode('login');
+          return;
+        }
+        
+        this.toggleAuthMode('profile');
+        
+        document.getElementById('profileAvatar').src = app.userAvatar;
+        document.getElementById('profileName').textContent = app.userName;
+        document.getElementById('profileDesc').textContent = app.userDesc;
+        document.getElementById('lvlText').textContent = `Level ${app.userLevel}`;
+        document.getElementById('xpText').textContent = `${app.userXP} XP`;
+        
+        const tagsContainer = document.getElementById('profileInterestsDisplay');
+        if(app.userInterests && app.userInterests.length > 0) {
+            tagsContainer.innerHTML = app.userInterests.map(id => {
+                const cat = app.categories.find(c => c.id === id);
+                return `<span class="px-2.5 py-1 rounded-md bg-stone-100 dark:bg-white/10 text-[10px] font-bold text-stone-600 dark:text-white/80 border border-stone-200 dark:border-white/5">${cat ? cat.name : id}</span>`;
+            }).join('');
+        } else {
+            tagsContainer.innerHTML = '<span class="text-xs text-stone-400 dark:text-white/40 italic">Интересы не выбраны</span>';
+        }
+
+        const currentLevelStart = (app.userLevel - 1) * 100;
+        const pct = Math.max(0, Math.min(100, ((app.userXP - currentLevelStart) / 100) * 100));
+        document.getElementById('xpBar').style.width = pct + '%';
+        const grid = document.getElementById('badgesGrid');
+        grid.innerHTML = '';
+        if (!app.badges.length) {
+          grid.innerHTML = `
+            <div class="col-span-4 text-sm text-stone-500 dark:text-white/60">
+              Пока без бейджей. Пора “в люди”.
+            </div>`;
+          return;
+        }
+        app.badges.forEach(b => {
+          const el = document.createElement('div');
+          el.className = 'bg-white dark:bg-white/5 border border-stone-100 dark:border-white/10 rounded-2xl p-3 flex flex-col items-center justify-center';
+          el.innerHTML = `
+            <div class="text-2xl">${b.icon}</div>
+            <div class="text-[10px] mt-2 font-extrabold text-stone-500 dark:text-white/60 text-center">${this.escapeHTML(b.name)}</div>
+          `;
+          grid.appendChild(el);
+        });
+      },
+       
+      toggleUserMenu() {
+        const menu = document.getElementById('userMenuDropdown');
+        if(menu.classList.contains('hidden')) {
+            menu.classList.remove('hidden');
+            this.renderUserMenu();
+        } else {
+            menu.classList.add('hidden');
+        }
+      },
+        
+      closeUserMenu() {
+        const menu = document.getElementById('userMenuDropdown');
+        menu.classList.add('hidden');
+      },
+
+      renderUserMenu() {
+        const guestView = document.getElementById('menuGuestView');
+        const userView = document.getElementById('menuUserView');
+        const logoutBlock = document.getElementById('menuLogoutBlock');
+
+        if(app.isLoggedIn) {
+            guestView.classList.add('hidden');
+            userView.classList.remove('hidden');
+            logoutBlock.classList.remove('hidden');
+        } else {
+            guestView.classList.remove('hidden');
+            userView.classList.add('hidden');
+            logoutBlock.classList.add('hidden');
+        }
+      },
+
+      openSettingsModal() {
+        const overlay = document.getElementById('settingsOverlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+      },
+
+      closeSettingsModal() {
+        const overlay = document.getElementById('settingsOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      },
+
+      renderAll() {
+        this.renderEvents();
+        this.renderGuilds();
+        this.renderSaved();
+        if (app.isLoggedIn) {
+          document.getElementById('greetingTitle').textContent = `Привет, ${app.userName}! 👋`;
+        } else {
+          document.getElementById('greetingTitle').textContent = 'Привет! 👋';
+        }
+        // If profile modal is open, refresh it
+        const profile = document.getElementById('profileOverlay');
+        if(!profile.classList.contains('hidden')) {
+            this.renderProfile();
+        }
+      }
+    };
+
+    document.addEventListener('click', (e) => {
+      const detail = document.getElementById('detailOverlay');
+      if (detail.classList.contains('flex') && e.target === detail) UI.closeDetail();
+      const create = document.getElementById('createOverlay');
+      if (create.classList.contains('flex') && e.target === create) UI.closeCreateModal();
+      const profile = document.getElementById('profileOverlay');
+      if (profile.classList.contains('flex') && e.target === profile) UI.closeProfileModal();
+      const settings = document.getElementById('settingsOverlay');
+      if (settings.classList.contains('flex') && e.target === settings) UI.closeSettingsModal();
+      const menuContainer = document.getElementById('userMenuContainer');
+      if (menuContainer && !menuContainer.contains(e.target)) {
+         UI.closeUserMenu();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      app.init();
+      UI.switchTab('events');
+    });
+  </script>
+</body>
+</html>
